@@ -206,3 +206,65 @@ Decision: Create `total_item_value` as `price + freight_value`.
 Action: Add a new column called `total_item_value`.
 
 Reason: This represents the full item-level amount paid by the customer and will later be used in revenue analysis and the warehouse fact table.
+
+---
+
+## Table: products
+
+### Column: `product_category_name`
+
+Issue: `product_category_name` contains missing values.
+
+Decision: Preserve the missing-category information using a boolean flag, then replace missing category values with `unknown` for downstream warehouse loading.
+
+Action: Create `is_product_category_missing`, then fill missing `product_category_name` values with `unknown`.
+
+Reason: Missing product categories are important data quality information, but warehouse dimensions should not contain null category labels.
+
+---
+
+### Column: `product_category_name_english`
+
+Issue: Product category names are originally stored in Portuguese. Business dashboards and reports should use readable English category names.
+
+Decision: Join `staging.products` with `staging.categories` to add the English category name.
+
+Action: Merge products with the category translation table using `product_category_name`.
+
+Reason: English category names make the final warehouse and Power BI dashboard easier to understand.
+
+---
+
+### Columns: `product_weight_g`, `product_length_cm`, `product_height_cm`, `product_width_cm`
+
+Issue: Product physical dimension columns contain missing values and some invalid weight values.
+
+Decision: Convert invalid zero or negative physical dimensions to missing values, then impute missing physical dimensions using the median value within each product category. If a category median is unavailable, use the global median.
+
+Action: Apply category-level median imputation in `scripts/02_cleaning/clean_products.py`.
+
+Reason: Physical dimensions are needed for logistics and shipping analysis. Median imputation is preferred because it is less affected by extreme values than the mean.
+
+---
+
+### Columns: `product_name_lenght`, `product_description_lenght`, `product_photos_qty`
+
+Issue: Product descriptive metadata columns contain missing values.
+
+Decision: Fill missing descriptive metadata values with `0`.
+
+Action: Apply `.fillna(0)` to descriptive metadata columns.
+
+Reason: These columns represent counts or lengths. A missing value means the product metadata is unavailable, so `0` is a safer placeholder than inventing an average description length.
+
+---
+
+### Table-level issue: duplicate product IDs
+
+Issue: Each product should be uniquely identified by `product_id`.
+
+Decision: Apply a defensive duplicate-removal step based on `product_id`.
+
+Action: Use `drop_duplicates(subset=["product_id"])`.
+
+Reason: `product_id` should uniquely identify each product before loading into the warehouse product dimension.
