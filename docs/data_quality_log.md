@@ -144,3 +144,65 @@ Decision: Create a combined `customer_city_state` field.
 Action: Combine `customer_city` and `customer_state`.
 
 Reason: A combined location field is useful for readable geographic analysis and dashboard filters.
+
+---
+
+## Table: order_items
+
+### Column: `shipping_limit_date`
+
+Issue: `shipping_limit_date` was loaded from the staging schema as a raw date/time-like field and must be validated as a proper datetime column before analysis.
+
+Decision: Convert `shipping_limit_date` to a proper datetime value using `pd.to_datetime(..., errors='coerce')`.
+
+Action: Applied in `scripts/02_cleaning/clean_order_items.py`.
+
+Reason: Shipping deadline analysis requires this column to behave as a real datetime field. If it remains text, we cannot safely compare it with other date fields or use it in time-based analysis.
+
+---
+
+### Column: `price`
+
+Issue: Product item prices should be positive values. Zero or negative prices would not be valid for revenue analysis.
+
+Decision: Remove rows where `price` is less than or equal to zero.
+
+Action: Filter out invalid rows in `scripts/02_cleaning/clean_order_items.py` and log how many rows were removed.
+
+Reason: Invalid prices would distort revenue, average order value, and profitability calculations.
+
+---
+
+### Column: `freight_value`
+
+Issue: Freight/shipping value should not be negative.
+
+Decision: Remove rows where `freight_value` is negative.
+
+Action: Filter out invalid rows in `scripts/02_cleaning/clean_order_items.py` and log how many rows were removed.
+
+Reason: Negative shipping values would distort total item value and logistics analysis.
+
+---
+
+### Table-level issue: duplicate order item rows
+
+Issue: Each item within an order should be uniquely identified by the combination of `order_id` and `order_item_id`.
+
+Decision: Apply a defensive duplicate-removal step based on `order_id` and `order_item_id`.
+
+Action: Use `drop_duplicates(subset=["order_id", "order_item_id"])`.
+
+Reason: The combination of order ID and item ID should uniquely identify each line item. Defensive deduplication protects the pipeline if future raw data contains repeated rows.
+
+---
+
+### Engineered feature: `total_item_value`
+
+Issue: The raw table stores item price and freight value separately.
+
+Decision: Create `total_item_value` as `price + freight_value`.
+
+Action: Add a new column called `total_item_value`.
+
+Reason: This represents the full item-level amount paid by the customer and will later be used in revenue analysis and the warehouse fact table.
