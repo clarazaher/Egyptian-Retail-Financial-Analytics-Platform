@@ -380,3 +380,89 @@ Decision: Create `response_time_days` as the difference between `review_answer_t
 Action: Add `response_time_days` in the cleaning script.
 
 Reason: Review response time is useful for customer service and operational analysis.
+
+---
+
+## Table: payments
+
+### Column: `payment_type`
+
+Issue: `payment_type` is a categorical text field that may contain inconsistent capitalization or whitespace.
+
+Decision: Standardize `payment_type` by trimming leading/trailing spaces and converting values to lowercase.
+
+Action: Apply `.str.strip().str.lower()` in `scripts/02_cleaning/clean_payments.py`.
+
+Reason: Standardizing payment types ensures that values such as `Credit_Card`, `credit_card`, and ` credit_card ` are treated as the same category during analysis.
+
+---
+
+### Column: `payment_value`
+
+Issue: Payment value should be positive for valid revenue and payment analysis.
+
+Decision: Remove rows where `payment_value` is less than or equal to zero.
+
+Action: Filter invalid payment value rows in `scripts/02_cleaning/clean_payments.py` and log how many rows were removed.
+
+Reason: Zero or negative payment values would distort revenue, average order value, and payment-method analysis.
+
+---
+
+### Column: `payment_installments`
+
+Issue: Payment installments should not be negative.
+
+Decision: Remove rows where `payment_installments` is less than zero.
+
+Action: Filter invalid installment rows in `scripts/02_cleaning/clean_payments.py`.
+
+Reason: Negative installment counts are not logically valid.
+
+---
+
+### Column: `payment_sequential`
+
+Issue: `payment_sequential` should be a positive value that identifies the sequence of payment records within an order.
+
+Decision: Remove rows where `payment_sequential` is less than or equal to zero.
+
+Action: Filter invalid payment sequence rows in `scripts/02_cleaning/clean_payments.py`.
+
+Reason: Invalid payment sequence values would make it difficult to uniquely identify payment records per order.
+
+---
+
+### Table-level issue: duplicate payment records
+
+Issue: Each payment record should be uniquely identified by the combination of `order_id` and `payment_sequential`.
+
+Decision: Apply a defensive duplicate-removal step based on `order_id` and `payment_sequential`.
+
+Action: Use `drop_duplicates(subset=["order_id", "payment_sequential"])`.
+
+Reason: The same payment sequence for the same order should not appear more than once.
+
+---
+
+### Engineered feature: `is_installment_payment`
+
+Issue: The raw table stores the number of installments but does not directly flag whether the payment was paid in installments.
+
+Decision: Create `is_installment_payment` as `payment_installments > 1`.
+
+Action: Add a boolean column in `scripts/02_cleaning/clean_payments.py`.
+
+Reason: This is useful for analyzing customer payment behavior.
+
+---
+
+### Engineered feature: `payment_value_per_installment`
+
+Issue: The raw table does not directly show the average value per installment.
+
+Decision: Create `payment_value_per_installment` by dividing `payment_value` by `payment_installments` when installments are greater than zero.
+
+Action: Add `payment_value_per_installment` in `scripts/02_cleaning/clean_payments.py`.
+
+Reason: This feature supports installment-level payment analysis while avoiding division by zero.
