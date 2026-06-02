@@ -306,3 +306,77 @@ Decision: Create a combined `seller_city_state` field.
 Action: Combine `seller_city` and `seller_state`.
 
 Reason: A combined location field is useful for readable geographic analysis and dashboard filters.
+
+---
+
+## Table: reviews
+
+### Column(s): `review_creation_date`, `review_answer_timestamp`
+
+Issue: These columns were loaded into the staging schema as `text`, although they represent date/time values.
+
+Decision: Convert both columns to proper datetime values using `pd.to_datetime(..., errors='coerce')`.
+
+Action: Applied in `scripts/02_cleaning/clean_reviews.py`.
+
+Reason: Datetime conversion is required before calculating review response time or validating the order of review events.
+
+---
+
+### Column: `review_score`
+
+Issue: Review score should follow the expected customer rating scale from 1 to 5.
+
+Decision: Validate that all review scores fall within the range 1 to 5.
+
+Action: Add an assertion in `scripts/02_cleaning/clean_reviews.py`.
+
+Reason: Invalid review scores would distort customer satisfaction analysis.
+
+---
+
+### Column(s): `review_comment_title`, `review_comment_message`
+
+Issue: These columns contain many missing values.
+
+Decision: Keep the missing values and create boolean flags to show whether a review includes a written title or message.
+
+Action: Create `has_review_title` and `has_review_message`.
+
+Reason: Missing review text is not necessarily a data error. Customers can submit numeric ratings without writing comments, so deleting or imputing these fields would be misleading.
+
+---
+
+### Table-level issue: duplicate review rows
+
+Issue: Exact duplicate review rows may distort review counts and satisfaction metrics.
+
+Decision: Apply a defensive exact-duplicate removal step.
+
+Action: Use `drop_duplicates()`.
+
+Reason: Exact duplicate rows do not add new information and should not be counted multiple times.
+
+---
+
+### Table-level issue: review response timeline
+
+Issue: `review_answer_timestamp` should not occur before `review_creation_date`.
+
+Decision: Do not delete records automatically. Create a boolean flag called `answer_before_review_creation`.
+
+Action: Compare `review_answer_timestamp` with `review_creation_date`.
+
+Reason: Timeline inconsistencies should remain visible for data quality review instead of being silently removed.
+
+---
+
+### Engineered feature: `response_time_days`
+
+Issue: The raw table does not directly show how long it took to respond to a review.
+
+Decision: Create `response_time_days` as the difference between `review_answer_timestamp` and `review_creation_date`.
+
+Action: Add `response_time_days` in the cleaning script.
+
+Reason: Review response time is useful for customer service and operational analysis.
