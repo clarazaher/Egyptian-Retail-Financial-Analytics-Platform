@@ -268,3 +268,41 @@ Decision: Apply a defensive duplicate-removal step based on `product_id`.
 Action: Use `drop_duplicates(subset=["product_id"])`.
 
 Reason: `product_id` should uniquely identify each product before loading into the warehouse product dimension.
+
+---
+
+## Table: sellers
+
+### Column(s): `seller_city`, `seller_state`
+
+Issue: Seller city and state values are text fields that may contain inconsistent capitalization or extra whitespace.
+
+Decision: Standardize `seller_city` by trimming leading/trailing spaces and converting values to title case. Standardize `seller_state` by trimming leading/trailing spaces and converting values to uppercase.
+
+Action: Apply `.str.strip().str.title()` to `seller_city` and `.str.strip().str.upper()` to `seller_state` in `scripts/02_cleaning/clean_sellers.py`.
+
+Reason: Standardized geographic fields are required for accurate grouping, filtering, and seller-location analysis.
+
+---
+
+### Table-level issue: duplicate seller IDs
+
+Issue: Each seller should be uniquely identified by `seller_id`.
+
+Decision: Apply a defensive duplicate-removal step based on `seller_id`.
+
+Action: Use `drop_duplicates(subset=["seller_id"])`.
+
+Reason: `seller_id` should uniquely identify each seller before loading into the warehouse seller dimension.
+
+---
+
+### Engineered feature: `seller_city_state`
+
+Issue: The raw table stores seller city and seller state in separate columns.
+
+Decision: Create a combined `seller_city_state` field.
+
+Action: Combine `seller_city` and `seller_state`.
+
+Reason: A combined location field is useful for readable geographic analysis and dashboard filters.
